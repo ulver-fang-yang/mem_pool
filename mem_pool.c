@@ -24,33 +24,21 @@ int hh_mempool_init(uint32_t size)
         g_mem_pool.aval_root = (mem_object_t *)malloc(sizeof(mem_object_t));
         if (NULL == g_mem_pool.aval_root)
             break;
-
-/*
-        g_mem_pool.used_root = (mem_object_t *)malloc(sizeof(mem_object_t));
-        if (NULL == g_mem_pool.used_root)
-            break;*/
     
         g_mem_pool.len = size;
         g_mem_pool.aval_root->ptr = g_mem_pool.buffer;
         g_mem_pool.aval_root->len = size;
         g_mem_pool.aval_root->next = NULL;
-/*
-        g_mem_pool.used_root->ptr = NULL;
-        g_mem_pool.used_root->len = 0;
-        g_mem_pool.used_root->next = NULL;*/
 
         pthread_mutex_unlock(&g_mempool_mutex);
 
         return 0;
     } while (0);
+    
     if (g_mem_pool.buffer)
     {
         if (g_mem_pool.aval_root)
             free(g_mem_pool.aval_root);
-
-/*
-        if (g_mem_pool.used_root)
-            free(g_mem_pool.used_root);*/
 
         free(g_mem_pool.buffer);
         g_mem_pool.len = 0;
@@ -60,23 +48,9 @@ int hh_mempool_init(uint32_t size)
     return -1;
 }
 
-/*
-void used_list_update(mem_object_t *used_ptr)
-{
-    mem_object_t *ptr = g_mem_pool.used_root;
-
-    if (NULL == g_mem_pool.used_root)
-        return;
-
-    if (NULL == used_ptr)
-        return;
-
-    while (ptr->next != NULL)
-        ptr = ptr->next;
-
-    ptr->
-}*/
-
+//  本来想用这个函数做一个类似碎片整理的效果的函数，结果发现整理以后，used队列里的指针都无效了。
+//  即：原先分配的内存指针都无效了。
+//  所以这个函数只能在所有used队列都清了以后在用
 mem_object_t *update_mempool(uint32_t size)
 {
     if (NULL == g_mem_pool.buffer)
@@ -121,6 +95,7 @@ mem_object_t *update_mempool(uint32_t size)
     return NULL;
 }
 
+//  递归整理有效指针
 void merge_list(mem_object_t *ptr)
 {
     if ((ptr->next != NULL) && (ptr->next->ptr == ptr->ptr + ptr->len))
@@ -132,6 +107,7 @@ void merge_list(mem_object_t *ptr)
     }
 }
 
+//  整理aval队列，将一些连续的内存合并
 mem_object_t *merge_mem(uint32_t size)
 {
     mem_object_t *aval_ptr = g_mem_pool.aval_root;
@@ -150,6 +126,7 @@ mem_object_t *merge_mem(uint32_t size)
     return NULL;
 }
 
+//  实际的分配一块内存地址
 mem_object_t *real_malloc(mem_object_t *aval_ptr, uint32_t size)
 {
     mem_object_t *used_ptr;
@@ -164,7 +141,6 @@ mem_object_t *real_malloc(mem_object_t *aval_ptr, uint32_t size)
     aval_ptr->ptr += size;
     aval_ptr->len -= size;
 
-//    used_list_update();
     if (NULL == g_mem_pool.used_root)
         g_mem_pool.used_root = ret_ptr;
     else
@@ -423,6 +399,8 @@ void *free_thread(void *arg)
     return NULL;
 }
 
+//  测试程序，效果不是太好，多线程无延时的情况下，总有used队列没完全清掉
+//  代码需要改进
 int main(int argc, char *argv[])
 {
 #ifdef MULTI_THREAD
