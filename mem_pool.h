@@ -1,35 +1,52 @@
 
+
 #ifndef MEM_POOL_H
 #define MEM_POOL_H
 
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
+#include <string.h>
+#include <unistd.h>
+#include <memory.h>
+#include <map>
+#include <vector>
 
-typedef struct mem_object_s
+
+using namespace std;
+
+
+
+class mem_pool
 {
-    uint8_t *ptr;
-    uint32_t len;
-    struct mem_object_s *next;
-} mem_object_t;
+public:
+    mem_pool(uint32_t size);
+    mem_pool(uint8_t *pt, uint32_t size);
+    ~mem_pool();
+
+private:
+    uint32_t mem_pool_size;
+    uint8_t *mem_pool_buf;
+    uint32_t *last_used_offset;
+    map<uint32_t, vector<uint8_t *> > avail_size_map;
+    map<uint8_t *, uint32_t> avail_map;
+    map<uint8_t *, uint32_t> used_map;
+
+public:
+    uint8_t *get_mem_pool_buf() { return mem_pool_buf; }
+    void clear();
+    uint8_t *mem_pool_alloc(uint32_t size);
+    void mem_pool_free(uint8_t *used_buf);
+    void insert_used(uint8_t *avail_buf, uint32_t size);
+    void insert_avail(uint8_t *avail_buf, uint32_t size);
+    void insert_last_avail(uint8_t *avail_buf);
+    uint8_t *mem_pool_realloc(uint8_t *used_buf, uint32_t new_size);
+
+private:
+    void mem_pool_merge();
+};
 
 
-typedef struct mem_pool_s
-{
-   uint8_t *buffer;
-   uint32_t len;
-   mem_object_t *aval_root;
-   mem_object_t *used_root;
-} mem_pool_t;
-
-static mem_pool_t g_mem_pool;
-static pthread_mutex_t g_mempool_mutex;
-
-int hh_mempool_init();
-mem_object_t *hh_mempool_malloc(uint32_t size);
-int hh_mempool_free(mem_object_t *ptr);
-void hh_mempool_exit();
-
-
-#endif  // MEM_POOL_H
-
+#endif  //  MEM_POOL_H
 
